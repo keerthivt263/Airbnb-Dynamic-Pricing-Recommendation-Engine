@@ -1,0 +1,131 @@
+{
+ "cells": [
+  {
+   "cell_type": "code",
+   "execution_count": 2,
+   "id": "0439887a-6ca8-43a7-95ee-3ec29add9f99",
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "✅ Saved features to C:/Users/DELL/Downloads/project/Elevate labs/airbnb_pricing/data/airbnb_features.csv. Shape: (73367, 14)\n"
+     ]
+    }
+   ],
+   "source": [
+    "# src/features.py\n",
+    "import pandas as pd\n",
+    "import numpy as np\n",
+    "import os\n",
+    "\n",
+    "# Input and output paths (update if your paths differ)\n",
+    "IN = os.path.join(\"C:/Users/DELL/Downloads/project/Elevate labs/airbnb_pricing/data/airbnb_processed.csv\")\n",
+    "OUT = os.path.join(\"C:/Users/DELL/Downloads/project/Elevate labs/airbnb_pricing/data/airbnb_features.csv\")\n",
+    "\n",
+    "def target_encode_smoothing(df, col, target, smoothing=0.2):\n",
+    "    \"\"\"\n",
+    "    Simple target encoding with smoothing:\n",
+    "    encoded = (mean_cat * count_cat + global_mean * smoothing) / (count_cat + smoothing)\n",
+    "    Returns a Series aligned with df index.\n",
+    "    \"\"\"\n",
+    "    global_mean = df[target].mean()\n",
+    "    agg = df.groupby(col)[target].agg(['count', 'mean']).rename(columns={'mean':'mean_cat'})\n",
+    "    # compute smoothed value\n",
+    "    agg['te'] = (agg['mean_cat'] * agg['count'] + global_mean * smoothing) / (agg['count'] + smoothing)\n",
+    "    mapping = agg['te'].to_dict()\n",
+    "    return df[col].map(mapping).fillna(global_mean)\n",
+    "\n",
+    "def build_features():\n",
+    "    # Load processed data\n",
+    "    df = pd.read_csv(IN, low_memory=False)\n",
+    "\n",
+    "    # ----- ROOM TYPE FLAGS -----\n",
+    "    if \"room_type\" in df.columns:\n",
+    "        df[\"is_shared_room\"] = (df[\"room_type\"] == \"Shared room\").astype(int)\n",
+    "        df[\"is_private_room\"] = (df[\"room_type\"] == \"Private room\").astype(int)\n",
+    "        df[\"is_entire_place\"] = (df[\"room_type\"] == \"Entire home/apt\").astype(int)\n",
+    "    else:\n",
+    "        df[\"is_shared_room\"] = 0\n",
+    "        df[\"is_private_room\"] = 0\n",
+    "        df[\"is_entire_place\"] = 0\n",
+    "\n",
+    "    # ----- AMENITIES LOG TRANSFORM -----\n",
+    "    if \"amenities_count\" in df.columns:\n",
+    "        df[\"log_amenities_count\"] = np.log1p(df[\"amenities_count\"])\n",
+    "    else:\n",
+    "        df[\"log_amenities_count\"] = 0\n",
+    "\n",
+    "    # ----- NEIGHBOURHOOD MEDIAN PRICE -----\n",
+    "    if \"neighbourhood\" in df.columns and \"price\" in df.columns:\n",
+    "        nb = df.groupby(\"neighbourhood\")[\"price\"].median().rename(\"neighbourhood_median_price\")\n",
+    "        df = df.merge(nb, left_on=\"neighbourhood\", right_index=True, how=\"left\")\n",
+    "    else:\n",
+    "        df[\"neighbourhood_median_price\"] = df[\"price\"].median()\n",
+    "\n",
+    "    # ----- TARGET ENCODING (manual) -----\n",
+    "    cat_cols = []\n",
+    "    if \"neighbourhood\" in df.columns:\n",
+    "        cat_cols.append(\"neighbourhood\")\n",
+    "    if \"property_type\" in df.columns:\n",
+    "        cat_cols.append(\"property_type\")\n",
+    "\n",
+    "    # apply manual target encoding with smoothing\n",
+    "    for c in cat_cols:\n",
+    "        te_col = f\"te_{c}\"\n",
+    "        df[te_col] = target_encode_smoothing(df, c, target=\"price\", smoothing=0.2)\n",
+    "\n",
+    "    # ----- SELECT FINAL FEATURES -----\n",
+    "    features = [\n",
+    "        \"price\", \"bedrooms\", \"beds\", \"bathrooms\", \"accommodates\",\n",
+    "        \"amenities_count\", \"log_amenities_count\", \"host_age_days\",\n",
+    "        \"neighbourhood_median_price\",\n",
+    "        \"is_shared_room\", \"is_private_room\", \"is_entire_place\"\n",
+    "    ]\n",
+    "\n",
+    "    # Add encoded categorical features (if created)\n",
+    "    features += [c for c in df.columns if c.startswith(\"te_\")]\n",
+    "\n",
+    "    # Drop rows missing the target\n",
+    "    df = df.dropna(subset=[\"price\"])\n",
+    "\n",
+    "    # Save final features\n",
+    "    df[features].to_csv(OUT, index=False)\n",
+    "    print(f\"✅ Saved features to {OUT}. Shape: {df[features].shape}\")\n",
+    "\n",
+    "if __name__ == \"__main__\":\n",
+    "    build_features()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "577adf01-e12a-451c-8792-0f06acc7a851",
+   "metadata": {},
+   "outputs": [],
+   "source": []
+  }
+ ],
+ "metadata": {
+  "kernelspec": {
+   "display_name": "Python (airbnb_env)",
+   "language": "python",
+   "name": "airbnb_env"
+  },
+  "language_info": {
+   "codemirror_mode": {
+    "name": "ipython",
+    "version": 3
+   },
+   "file_extension": ".py",
+   "mimetype": "text/x-python",
+   "name": "python",
+   "nbconvert_exporter": "python",
+   "pygments_lexer": "ipython3",
+   "version": "3.9.23"
+  }
+ },
+ "nbformat": 4,
+ "nbformat_minor": 5
+}

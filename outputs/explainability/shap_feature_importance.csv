@@ -1,0 +1,14 @@
+feature,mean_abs_shap
+is_entire_place,25.446160643992123
+bedrooms,21.665477305519378
+accommodates,21.229107535135686
+te_neighbourhood,19.4524245369851
+neighbourhood_median_price,14.512460111520078
+bathrooms,11.728041009303276
+te_property_type,4.494929940618749
+host_age_days,2.961342338552147
+amenities_count,2.912901293473954
+beds,1.9670614491061236
+is_private_room,1.5803854906766786
+is_shared_room,0.8385552882205008
+log_amenities_count,0.0
